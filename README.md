@@ -75,6 +75,31 @@ write_eeprom(10, 0x55);  // Escribe el valor 0x55 en la dirección 10 de HEF
 
 ---
 
+## 🛠 Funcionamiento del Borrado y Escritura en Memoria Flash de los PIC
+
+En los microcontroladores PIC, la memoria Flash solo permite cambiar bits de `1` a `0` 
+durante la escritura. Para volver a poner un `0` en `1`, es necesario borrar la página 
+completa, lo que restablece todos los bits a `1`.
+
+### ⚙ Comportamiento de la Escritura sin Borrado Previo
+
+Si se escribe en una posición de memoria sin haberla borrado antes, el valor resultante 
+será la combinación del valor previo y el nuevo, aplicando una operación **AND bit a bit**.
+
+Ejemplo con palabras de 14 bits:
+
+```
+Valor almacenado:    11111100000011
+Nuevo valor escrito: 11110011111111
+-------------------------------
+Valor final:         11110000000011
+```
+
+Esto significa que los `0` previos se mantienen y solo se pueden escribir nuevos `0`. 
+Para garantizar que un valor se almacene correctamente, **es necesario borrar la página antes de escribir**.
+
+---
+
 ## 📜 Licencia
 Este proyecto está bajo la licencia **MIT**.
 
