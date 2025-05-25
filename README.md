@@ -28,7 +28,7 @@ Dado que la HEF es una parte de la **memoria de programa**, su estructura es dif
 
 3. **El compilador podría usar la HEF:**  
    - La HEF está dentro de la **memoria de programa**, por lo que si el código es demasiado grande, **el compilador podría sobrescribirla**.
-   - Se recomienda **reservar la HEF** en el código.
+   - Se reserva el segmento de HEF usando directiva #org, pero no se ha probado.
 
 ---
 
@@ -39,6 +39,12 @@ Para que la librería funcione correctamente, es necesario definir los parámetr
 ```c
 #define HEF_START_ADDRESS   0xF000  // Dirección de inicio de HEF
 #define HEF_SIZE            128     // Tamaño de la HEF en bytes
+```
+
+Se han creado defines para los principales PICs de la familia 10/12/16, por lo que se puede definir `HEF_START_ADDRESS` con estos valores:
+
+```c
+#define HEF_START_ADDRESS   HEF_16F1455
 ```
 
 ### 📌 Modo de escritura

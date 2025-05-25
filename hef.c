@@ -53,6 +53,12 @@
 #ifndef HEF_START_ADDRESS
 	#error "You have to define HEF_START_ADDRESS"
 #endif
+
+// Find the last block of our HEF
+#define HEF_END_ADDRESS     (HEF_START_ADDRESS + HEF_SIZE - 1)
+
+// Reserve flash of the HEF positions to avoid overwrite by the compiler
+#org HEF_START_ADDRESS, HEF_END_ADDRESS
 // ----------------------------------------------------------------------------
 
 // --- DEVICES WITH REAL EEPROM ----------------------------------------------
