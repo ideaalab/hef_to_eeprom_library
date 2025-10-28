@@ -108,7 +108,7 @@ void hef_write_block(unsigned int16 addr, byte *ptr, byte count) {
 }
 
 /*
- * hef_read_block()
+ * hef_read_block_word()
  * ---------------------
  * Reads multiple words (12 or 14 bits) from HEF memory into a buffer.
  * 
@@ -127,7 +127,7 @@ void hef_read_block_word(unsigned int16 addr, int16 *ptr, byte count) {
 }
 
 /*
- * hef_write_block()
+ * hef_write_block_word()
  * ----------------------
  * Writes multiple words (12 or 14 bits) from a buffer to HEF memory.
  * Each word is masked to valid bits before writing.
