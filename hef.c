@@ -85,7 +85,9 @@ void hef_write_word(unsigned int16 addr, int16 value) {
  *   count - Number of bytes to read (1 to HEF_SIZE)
  */
 void hef_read_block(unsigned int16 addr, byte *ptr, byte count){
-	read_program_memory(HEF_START_ADDRESS + addr, ptr, count);
+	for(byte i = 0; i < count; i++) {
+		ptr[i] = hef_read_byte(addr + i);
+	}
 }
 
 /*
@@ -100,8 +102,44 @@ void hef_read_block(unsigned int16 addr, byte *ptr, byte count){
  *   count - Number of bytes to write (1 to HEF_SIZE)
  */
 void hef_write_block(unsigned int16 addr, byte *ptr, byte count) {
-	disable_interrupts(GLOBAL);
-	write_program_memory(HEF_START_ADDRESS + addr, ptr, count);
-	enable_interrupts(GLOBAL);
+	for(byte i = 0; i < count; i++) {
+		hef_write_byte(addr + i, ptr[i]);  // Verifica antes de escribir
+	}
+}
+
+/*
+ * hef_read_block()
+ * ---------------------
+ * Reads multiple words (12 or 14 bits) from HEF memory into a buffer.
+ * 
+ * Parameters:
+ *   addr  - Starting address offset within HEF memory (0 to HEF_SIZE-1)
+ *   ptr   - Pointer to int16 buffer where words will be stored
+ *   count - Number of words to read (1 to HEF_SIZE)
+ */
+void hef_read_block_word(unsigned int16 addr, int16 *ptr, byte count) {
+	read_program_memory(HEF_START_ADDRESS + addr, (byte*)ptr, count * 2);
+	
+	// Apply mask to ensure only valid bits are kept
+	for(byte i = 0; i < count; i++) {
+		ptr[i] &= HEF_WORD_MASK;
+	}
+}
+
+/*
+ * hef_write_block()
+ * ----------------------
+ * Writes multiple words (12 or 14 bits) from a buffer to HEF memory.
+ * Each word is masked to valid bits before writing.
+ * 
+ * Parameters:
+ *   addr  - Starting address offset within HEF memory (0 to HEF_SIZE-1)
+ *   ptr   - Pointer to int16 buffer containing words to write
+ *   count - Number of words to write (1 to HEF_SIZE)
+ */
+void hef_write_block_word(unsigned int16 addr, int16 *ptr, byte count) {
+	for(byte i = 0; i < count; i++) {
+		hef_write_word(addr + i, ptr[i]);
+	}
 }
 #endif

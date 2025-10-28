@@ -192,21 +192,28 @@
 	// Reserve flash of the HEF positions to avoid overwrite by the compiler
 	#org HEF_START_ADDRESS, HEF_END_ADDRESS {}
 
-	// Prototipos
+	// Prototypes
+	// read
 	byte hef_read_byte(unsigned int16 addr);
 	int16 hef_read_word(unsigned int16 addr);
+	void hef_read_block(unsigned int16 addr, byte *ptr, byte count);
+	void hef_read_block_word(unsigned int16 addr, int16 *ptr, byte count);
+	// write
 	void hef_write_byte(unsigned int16 addr, byte value);
 	void hef_write_word(unsigned int16 addr, int16 value);
-	void hef_read_block(unsigned int16 addr, byte *ptr, byte count);
 	void hef_write_block(unsigned int16 addr, byte *ptr, byte count);
+	void hef_write_block_word(unsigned int16 addr, int16 *ptr, byte count);
 	
 	// Compatibility macros to work as classic EEPROM
 	#define read_eeprom(address) hef_read_byte((address))
-	#define write_eeprom(address,val) hef_write_byte((address),(val))
 	#define read_eeprom_word(address) hef_read_word((address))
-	#define write_eeprom_word(address,val) hef_write_word((address),(val))
 	#define read_eeprom_block(address,ptr,count) hef_read_block((address),(ptr),(count))
+	#define read_eeprom_block_word(address,ptr,count) hef_read_block_word((address),(ptr),(count))
+	
+	#define write_eeprom(address,val) hef_write_byte((address),(val))
+	#define write_eeprom_word(address,val) hef_write_word((address),(val))
 	#define write_eeprom_block(address,ptr,count) hef_write_block((address),(ptr),(count))
+	#define write_eeprom_block_word(address,ptr,count) hef_write_block_word((address),(ptr),(count))
 
 #endif	// DATA_EEPROM
 // ----------------------------------------------------------------------------

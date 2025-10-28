@@ -21,9 +21,10 @@ Since HEF is part of the **program memory**, its structure differs from EEPROM:
 
 - ✅ **Transparent EEPROM emulation** - Drop-in replacement for standard EEPROM functions
 - ✅ **Auto-detection** - Automatically detects HEF address for 38+ supported PICs
-- ✅ **Byte, Word & Block operations** - Read/write single bytes, words, or multiple bytes
+- ✅ **Byte, Word & Block operations** - Read/write single bytes, words, or blocks
 - ✅ **Interrupt protection** - Automatically disables interrupts during write operations
 - ✅ **No external dependencies** - Works with CCS C Compiler built-in functions
+- ✅ **Write optimization** - Skips writes when value already stored (extends HEF lifespan)
 
 ---
 
@@ -49,10 +50,10 @@ Since HEF is part of the **program memory**, its structure differs from EEPROM:
 ## ⚙️ Installation
 
 1. Copy `hef.h` and `hef.c` to your project folder
-2. Include the header in your main file:
-```c
-   #include "hef.h"
-```
+2. Include the library in your main file:
+   ```c
+   #include "hef.c"  // CCS C Compiler requires including .c file
+   ```
 3. The library will automatically detect your PIC and configure HEF
 
 ### Manual Configuration (Optional)
@@ -60,27 +61,25 @@ Since HEF is part of the **program memory**, its structure differs from EEPROM:
 If using an unsupported PIC, manually define the HEF start address:
 ```c
 #define HEF_START_ADDRESS 0x1F80  // Example for 8K Flash PICs
-#include "hef.h"
+#include "hef.c"
 ```
 
 ### Reserving HEF Memory
 
-Add this to your **Project Properties → XC8 Linker → Additional Options**:
+**Recommended:** Add this to your **Project Properties → Linker → Additional Options**:
 ```
 --ROM=default,-1F80-1FFF    (for PIC16F1455 and similar 8K PICs)
 --ROM=default,-3F80-3FFF    (for 16K PICs like PIC16F1518/19)
 ```
 
-Or use the `#org` directive (already included in hef.h):
-```c
-#org HEF_START_ADDRESS, HEF_END_ADDRESS {}
-```
+The library also includes an `#org` directive for automatic reservation, but linker options are more reliable.
 
 ---
 
 ## 📚 API Reference
 
 ### Basic Functions (EEPROM Compatible)
+
 ```c
 // Write a byte to HEF
 write_eeprom(address, value);
@@ -89,14 +88,19 @@ write_eeprom(address, value);
 byte data = read_eeprom(address);
 ```
 
-### Extended Functions
+### Word Operations (12 or 14 bits)
+
 ```c
-// Write a word (12 or 14 bits)
+// Write a word (full 12/14 bits preserved)
 write_eeprom_word(address, word_value);
 
-// Read a word (12 or 14 bits)
+// Read a word (12/14 bits masked automatically)
 int16 word_data = read_eeprom_word(address);
+```
 
+### Block Operations - Bytes
+
+```c
 // Write multiple bytes
 byte buffer[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
 write_eeprom_block(address, buffer, 10);
@@ -106,24 +110,46 @@ byte buffer[10];
 read_eeprom_block(address, buffer, 10);
 ```
 
-### Direct HEF Functions
+### Block Operations - Words
+
 ```c
-hef_read_byte(addr);                    // Read single byte
-hef_read_word(addr);                    // Read single word
-hef_write_byte(addr, value);            // Write single byte
-hef_write_word(addr, value);            // Write single word
-hef_read_block(addr, ptr, count);       // Read multiple bytes
-hef_write_block(addr, ptr, count);      // Write multiple bytes
+// Write multiple words
+int16 word_buffer[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+write_eeprom_block_word(address, word_buffer, 10);
+
+// Read multiple words
+int16 word_buffer[10];
+read_eeprom_block_word(address, word_buffer, 10);
+```
+
+### Direct HEF Functions
+
+All EEPROM-compatible macros map to these functions:
+
+```c
+// Single operations
+hef_read_byte(addr);                      // Read single byte
+hef_read_word(addr);                      // Read single word
+hef_write_byte(addr, value);              // Write single byte
+hef_write_word(addr, value);              // Write single word
+
+// Block operations
+hef_read_block(addr, ptr, count);         // Read multiple bytes
+hef_write_block(addr, ptr, count);        // Write multiple bytes
+hef_read_block_word(addr, ptr, count);    // Read multiple words
+hef_write_block_word(addr, ptr, count);   // Write multiple words
 ```
 
 ---
 
 ## 💡 Usage Examples
 
+A complete working example is available in `/demo/main.c`
+
 ### Example 1: Basic EEPROM Emulation
 ```c
 #include <16F1455.h>
-#include "hef.h"
+#include "hef.c"
 
 void main() {
     // Write some data
@@ -141,12 +167,13 @@ void main() {
 ### Example 2: Storing Configuration Data
 ```c
 #include <16F1455.h>
-#include "hef.h"
+#include "hef.c"
 
 #define CONFIG_ADDRESS 0
 
 typedef struct {
     byte device_id;
+    byte firmware_version;
     int16 serial_number;
     byte checksum;
 } Config;
@@ -164,22 +191,28 @@ void main() {
     
     // Save configuration
     my_config.device_id = 42;
+    my_config.firmware_version = 1;
     my_config.serial_number = 12345;
     my_config.checksum = 0xAB;
     save_config(&my_config);
     
-    // Load configuration
+    // Load configuration after power cycle
     Config loaded_config;
     load_config(&loaded_config);
+    
+    // Verify data
+    if(loaded_config.device_id == 42) {
+        // Configuration loaded successfully
+    }
     
     while(1);
 }
 ```
 
-### Example 3: Data Logging
+### Example 3: Data Logging with Words
 ```c
 #include <16F1619.h>
-#include "hef.h"
+#include "hef.c"
 
 #define LOG_START 0
 #define MAX_LOGS 64  // 128 bytes / 2 bytes per log
@@ -194,11 +227,41 @@ void log_temperature(int16 temp) {
 }
 
 void main() {
+    // Log temperature readings (in 0.1°C units)
     log_temperature(250);  // 25.0°C
     log_temperature(312);  // 31.2°C
+    log_temperature(189);  // 18.9°C
     
-    // Read back first log entry
-    int16 first_temp = read_eeprom_word(LOG_START);
+    // Read back logs
+    int16 temps[3];
+    read_eeprom_block_word(LOG_START, temps, 3);
+    
+    // Process logged data
+    for(int i = 0; i < 3; i++) {
+        // temps[i] contains the logged values
+    }
+    
+    while(1);
+}
+```
+
+### Example 4: Block Word Operations
+```c
+#include <16F1455.h>
+#include "hef.c"
+
+void main() {
+    // Prepare data buffer
+    int16 sensor_data[8] = {1234, 5678, 9012, 3456, 7890, 1122, 3344, 5566};
+    
+    // Write entire block at once
+    write_eeprom_block_word(0, sensor_data, 8);
+    
+    // Read back entire block
+    int16 retrieved_data[8];
+    read_eeprom_block_word(0, retrieved_data, 8);
+    
+    // All 8 words are now in retrieved_data[]
     
     while(1);
 }
@@ -227,52 +290,106 @@ This means:
 
 ### HEF Lifespan
 
-- HEF endurance: **~100,000 erase/write cycles** (at 0°C to 60°C)
-- Regular Flash: **~10,000 erase/write cycles**
-- Traditional EEPROM: **~1,000,000 erase/write cycles**
+| Memory Type | Erase/Write Cycles | Temperature Range |
+|-------------|-------------------|-------------------|
+| **HEF** | ~100,000 cycles | 0°C to 60°C |
+| Regular Flash | ~10,000 cycles | Full range |
+| Traditional EEPROM | ~1,000,000 cycles | Full range |
 
-### Memory Size
+**Important:** The library optimizes HEF lifespan by skipping writes when the value is already stored. This can extend the practical lifetime significantly.
 
-All supported PICs have **128 bytes** of HEF memory.
+### Memory Organization
+
+- All supported PICs have **128 bytes (128 words)** of HEF memory
+- Each word stores:
+  - **12 bits** for PIC10F (baseline architecture)
+  - **14 bits** for PIC12F/16F (enhanced mid-range)
+- Byte operations use only the **LSB (low 8 bits)**
+- Word operations preserve all **12 or 14 bits**
 
 ### RAM Usage
 
-- **Byte/Word operations:** No RAM buffer needed
-- **Block operations:** Uses temporary variables only during the operation
+- **Single operations:** No RAM buffer needed
+- **Block operations (bytes):** Minimal temporary variables
+- **Block operations (words):** Temporary buffer during read (2 × count bytes)
 
 ---
 
 ## 🔧 How It Works
 
-1. **Detection:** Library automatically detects your PIC model using `getenv("DEVICE")`
-2. **HEF Mapping:** Maps the HEF region to the correct address for your PIC
-3. **Memory Reservation:** Uses `#org` directive to prevent compiler from using HEF for code
-4. **Read Operations:** Reads program memory words and extracts the LSB (byte operations)
-5. **Write Operations:** 
-   - Checks if value is already stored (skip write if identical)
-   - Disables interrupts
-   - Writes to program memory
-   - Re-enables interrupts
+1. **Auto-Detection:** Library detects your PIC model using `getenv("DEVICE")`
+2. **HEF Mapping:** Automatically maps HEF region to correct address
+3. **Memory Reservation:** Uses `#org` directive to prevent compiler overwriting HEF
+4. **Byte Operations:** Reads/writes LSB of each program memory word
+5. **Word Operations:** Reads/writes full 12/14-bit words with proper masking
+6. **Write Optimization:** 
+   - Checks if value already stored
+   - Skips write if identical (extends HEF lifespan)
+   - Disables interrupts during write
+   - Re-enables interrupts after write
 
 ---
 
 ## 🛠️ Troubleshooting
 
 ### "HEF_START_ADDRESS not defined" Error
-- Your PIC is not in the auto-detection list
-- Manually define `HEF_START_ADDRESS` before including `hef.h`
+**Cause:** Your PIC is not in the auto-detection list  
+**Solution:** Manually define `HEF_START_ADDRESS` before including the library:
+```c
+#define HEF_START_ADDRESS 0x1F80
+#include "hef.c"
+```
 
 ### Data Gets Overwritten by Program Code
-- Add linker option to reserve HEF memory (see Installation section)
-- Check that your program size doesn't exceed available Flash
+**Cause:** HEF memory not reserved in linker  
+**Solution:** Add linker option (see Installation section) or verify `#org` directive is working
 
 ### Values Don't Persist After Power Cycle
-- Ensure you're not in debug mode (some debuggers don't preserve HEF)
-- Verify HEF memory is properly reserved in linker settings
+**Possible causes:**
+- Running in debug mode (some debuggers don't preserve HEF)
+- HEF not properly reserved
+- Writing to wrong addresses
+
+**Solutions:**
+- Test in release mode without debugger
+- Verify HEF reservation in linker settings
+- Check that addresses are within 0 to 127
 
 ### "Internal EEPROM is being used" Warning
-- Your PIC has real EEPROM, library will use native functions automatically
-- This is normal behavior, no action needed
+**Cause:** Your PIC has real EEPROM  
+**Behavior:** Library automatically uses native EEPROM functions  
+**Action:** This is normal, no action needed
+
+### Compilation Errors with `hef.c`
+**Cause:** Path issues with `#include "hef.c"`  
+**Solution:** 
+- Ensure `hef.c` and `hef.h` are in the same folder
+- Use correct relative path (e.g., `"../hef.c"` if in subfolder)
+- Or add both files to project and include only `hef.h`
+
+---
+
+## 📂 Repository Structure
+
+```
+hef_to_eeprom_library/
+├── hef.h              # Library header file
+├── hef.c              # Library implementation
+├── README.md          # This file
+└── demo/
+    └── main.c         # Complete working example
+```
+
+---
+
+## 🔄 Version History
+
+**Current Version:** 1.0
+- Initial release
+- Support for 38+ PIC microcontrollers
+- Byte, word, and block operations
+- Automatic PIC detection
+- Write optimization for extended lifespan
 
 ---
 
@@ -281,4 +398,32 @@ This project is licensed under the **MIT License**.
 
 ---
 
-🚀 **Contributions and improvements are welcome!** Feel free to fork and submit pull requests! 🎯
+## 🤝 Contributing
+
+🚀 **Contributions and improvements are welcome!**
+
+To contribute:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+**Ideas for contributions:**
+- Add support for more PIC models
+- Optimize block operations
+- Add wear-leveling algorithms
+- Create additional examples
+- Improve documentation
+
+---
+
+## 📧 Contact
+
+For questions, suggestions, or issues:
+- **Author:** Martin Andersen
+- **Website:** [IDEAA Lab](http://www.ideaalab.com)
+- **GitHub:** Open an issue in the repository
+
+---
+
+🎯 **Thank you for using this library!**
