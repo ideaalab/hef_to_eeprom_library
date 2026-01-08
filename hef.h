@@ -14,8 +14,8 @@
 
 // --- KNOWN HEF START ADDRESSES --------------------------------------------
 // PIC10 family
-#define HEF_10F320	0x00C0	// 128 B (256-word Flash)
-#define HEF_10F322	0x01C0	// 128 B (512-word Flash)
+#define HEF_10F320	0x0080	// 128 B (256-word Flash)
+#define HEF_10F322	0x0180	// 128 B (512-word Flash)
 
 // PIC12 family
 #define HEF_12F1501	0x0380	// 128 B (1K-word Flash)
