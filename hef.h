@@ -190,7 +190,7 @@
 	#define DATA_EEPROM_SIZE	HEF_SIZE
 
 	// Reserve flash of the HEF positions to avoid overwrite by the compiler
-	#org HEF_START_ADDRESS, HEF_END_ADDRESS {}
+	//#org HEF_START_ADDRESS, HEF_END_ADDRESS {}
 
 	// Prototypes
 	// read
